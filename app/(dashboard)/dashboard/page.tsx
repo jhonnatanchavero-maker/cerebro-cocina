@@ -2,14 +2,19 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { BookOpen, TrendingUp, AlertTriangle, BarChart2, ShoppingCart, ChevronRight, Clock } from 'lucide-react'
+import {
+  BookOpen, TrendingUp, AlertTriangle, BarChart2,
+  ShoppingCart, ChevronRight, Clock, ArrowUpRight,
+  ClipboardList
+} from 'lucide-react'
 import { recipes } from '@/data/recipes'
 
 const categoryData = [
-  { name: 'Segundo Plato', count: 57, color: '#4285F4' },
-  { name: 'Primer Plato', count: 32, color: '#34A853' },
-  { name: 'Base/Genérico', count: 10, color: '#FBBC04' },
+  { name: 'Segundo', count: 57, color: '#4285F4' },
+  { name: 'Primero', count: 32, color: '#34A853' },
+  { name: 'Base', count: 10, color: '#FBBC04' },
   { name: 'Guarnición', count: 1, color: '#EA4335' },
 ]
 
@@ -20,70 +25,120 @@ const priceAlerts = [
 ]
 
 const topRecipes = [
-  'POLLO TIKKA MASALA', 'LASAÑA DE CARNE', 'MERLUZA A LA BILBAINA',
-  'CARRILLERA DE CERDO EN SALSA', 'ARROZ TRES DELICIAS'
+  'POLLO TIKKA MASALA',
+  'LASAÑA DE CARNE',
+  'MERLUZA A LA BILBAINA',
+  'CARRILLERA DE CERDO EN SALSA',
+  'ARROZ TRES DELICIAS',
 ]
 
-function StatCard({ icon: Icon, label, value, sub, color, badge }:
-  { icon: React.ElementType, label: string, value: string, sub?: string, color: string, badge?: string }) {
-  return (
-    <div className="card p-5 hover:shadow-card-hover transition-all duration-200 group">
-      <div className="flex items-start justify-between mb-3">
-        <div className="p-2 rounded-xl" style={{ background: color + '15' }}>
+// Shared fade-up animation props
+const fadeUpProps = (delay = 0) => ({
+  initial: { opacity: 0, y: 14 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.4, ease: 'easeOut' as const, delay },
+})
+
+// ── KPI Card ─────────────────────────────────────────────────────────────────
+interface StatCardProps {
+  icon: React.ElementType
+  label: string
+  value: string
+  sub?: string
+  color: string
+  badge?: string
+  href?: string
+}
+
+function StatCard({ icon: Icon, label, value, sub, color, badge, href }: StatCardProps) {
+  const inner = (
+    <motion.div
+      className="card p-5 cursor-pointer group"
+      whileHover={{ y: -2, boxShadow: '0 8px 24px rgba(66,133,244,0.14)' }}
+      transition={{ duration: 0.2 }}
+    >
+      <div className="flex items-start justify-between mb-4">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ background: color + '18' }}
+        >
           <Icon className="w-5 h-5" style={{ color }} />
         </div>
         {badge && (
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600">
-            {badge}
-          </span>
+          <span className="badge-danger">{badge}</span>
         )}
       </div>
-      <div className="text-2xl font-bold text-gray-900 mb-0.5">{value}</div>
-      <div className="text-sm font-medium text-gray-500">{label}</div>
-      {sub && <div className="text-xs text-gray-400 mt-1">{sub}</div>}
+      <div className="text-2xl font-bold text-slate-900 mb-0.5 tracking-tight">{value}</div>
+      <div className="text-sm font-medium text-slate-500">{label}</div>
+      {sub && <div className="text-xs text-slate-400 mt-1">{sub}</div>}
+    </motion.div>
+  )
+
+  return href ? <Link href={href}>{inner}</Link> : inner
+}
+
+// ── Chart tooltip ────────────────────────────────────────────────────────────
+function CustomTooltip({ active, payload, label }: {
+  active?: boolean
+  payload?: Array<{ value: number }>
+  label?: string
+}) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-white border border-slate-100 rounded-xl shadow-card-lg px-3 py-2 text-sm">
+      <p className="font-semibold text-slate-900">{label}</p>
+      <p className="text-primary">{payload[0].value} recetas</p>
     </div>
   )
 }
 
+// ── Page ─────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const hour = new Date().getHours()
   const greeting = hour < 13 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches'
 
   const totalRecipes = recipes.length
-  const totalIngredients = useMemo(() =>
-    [...new Set(recipes.flatMap(r => r.ingredients.map(i => i.name)))].length, [])
+  const totalIngredients = useMemo(
+    () => [...new Set(recipes.flatMap(r => r.ingredients.map(i => i.name)))].length,
+    []
+  )
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6">
+      {/* ── Header ────────────────────────────────────────── */}
+      <motion.div {...fadeUpProps(0)} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Fraunces, Georgia, serif' }}>
-            {greeting}, Chef 👨‍🍳
+          <h1
+            className="text-2xl font-bold text-slate-900"
+            style={{ fontFamily: 'Fraunces, Georgia, serif' }}
+          >
+            {greeting}, Chef
           </h1>
-          <p className="text-gray-500 mt-1 text-sm">
-            {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          <p className="text-slate-500 mt-0.5 text-sm">
+            {new Date().toLocaleDateString('es-ES', {
+              weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+            })}
           </p>
         </div>
         <Link
           href="/produccion"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm text-white transition-all"
-          style={{ background: 'linear-gradient(135deg, #4285F4, #2557C7)', boxShadow: '0 4px 12px rgba(66,133,244,0.3)' }}
+          className="btn-primary flex-shrink-0"
         >
           <Clock className="w-4 h-4" />
           Hoja del Jueves
           <ChevronRight className="w-4 h-4" />
         </Link>
-      </div>
+      </motion.div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── KPI cards ─────────────────────────────────────── */}
+      <motion.div {...fadeUpProps(0.07)} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={BookOpen}
           label="Fichas Técnicas"
           value={String(totalRecipes)}
           sub={`${totalIngredients} ingredientes únicos`}
           color="#4285F4"
+          href="/recetas"
         />
         <StatCard
           icon={TrendingUp}
@@ -98,7 +153,8 @@ export default function DashboardPage() {
           value="3"
           sub="Últimas 48 horas"
           color="#EA4335"
-          badge="¡Nuevo!"
+          badge="Nuevo"
+          href="/alertas"
         />
         <StatCard
           icon={BarChart2}
@@ -106,87 +162,117 @@ export default function DashboardPage() {
           value="68%"
           sub="Objetivo: 65%+"
           color="#FBBC04"
+          href="/escanallo"
         />
-      </div>
+      </motion.div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* ── Charts row ────────────────────────────────────── */}
+      <motion.div {...fadeUpProps(0.14)} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Bar chart */}
         <div className="lg:col-span-2 card p-5">
-          <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <BarChart2 className="w-4 h-4 text-primary" />
-            Recetas por Categoría
-          </h2>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="font-bold text-slate-900 flex items-center gap-2 text-base">
+              <BarChart2 className="w-4 h-4 text-primary" />
+              Recetas por Categoría
+            </h2>
+            <Link
+              href="/recetas"
+              className="flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-700 transition-colors"
+            >
+              Ver todas
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={categoryData} barSize={36}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                formatter={(val) => [val + ' recetas', 'Cantidad']}
+            <BarChart data={categoryData} barSize={40} barGap={8}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 12, fill: '#94A3B8', fontFamily: 'Inter, system-ui' }}
+                axisLine={false}
+                tickLine={false}
               />
-              <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+              <YAxis
+                tick={{ fontSize: 12, fill: '#94A3B8', fontFamily: 'Inter, system-ui' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F8FAFC' }} />
+              <Bar dataKey="count" radius={[8, 8, 0, 0]}>
                 {categoryData.map((entry, idx) => (
-                  <Cell key={idx} fill={entry.color} />
+                  <Cell key={idx} fill={entry.color} fillOpacity={0.9} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Quick access */}
+        {/* Top recipes */}
         <div className="card p-5 flex flex-col">
-          <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-primary" />
-            Recetas Destacadas
-          </h2>
-          <div className="flex-1 space-y-2">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-slate-900 flex items-center gap-2 text-base">
+              <BookOpen className="w-4 h-4 text-primary" />
+              Recetas Destacadas
+            </h2>
+          </div>
+          <div className="flex-1 space-y-1">
             {topRecipes.map((name, i) => (
               <Link
                 key={i}
                 href={`/recetas/${name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}
-                className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition-colors group"
+                className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors group cursor-pointer"
               >
-                <div className="w-6 h-6 rounded-lg bg-primary-light text-primary text-xs font-bold flex items-center justify-center">
+                <div
+                  className="w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center flex-shrink-0"
+                  style={{ background: '#EBF2FF', color: '#4285F4' }}
+                >
                   {i + 1}
                 </div>
-                <span className="text-sm text-gray-700 font-medium flex-1 line-clamp-1" style={{ fontFamily: 'Fraunces, Georgia, serif' }}>
+                <span
+                  className="text-sm text-slate-700 font-medium flex-1 line-clamp-1"
+                  style={{ fontFamily: 'Fraunces, Georgia, serif' }}
+                >
                   {name.split(' ').slice(0, 4).join(' ')}
                 </span>
-                <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors" />
+                <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors flex-shrink-0" />
               </Link>
             ))}
           </div>
-          <Link href="/recetas"
-            className="mt-4 text-center text-sm font-semibold text-primary hover:text-primary-dark transition-colors">
+          <Link
+            href="/recetas"
+            className="mt-4 text-center text-sm font-semibold text-primary hover:text-primary-700 transition-colors"
+          >
             Ver todas las recetas →
           </Link>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Alerts + Shopping */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* ── Alerts + Production ───────────────────────────── */}
+      <motion.div {...fadeUpProps(0.21)} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Price alerts */}
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+            <h2 className="font-bold text-slate-900 flex items-center gap-2 text-base">
               <AlertTriangle className="w-4 h-4 text-red-500" />
               Alertas de Precio
             </h2>
-            <Link href="/alertas" className="text-xs text-primary font-semibold hover:underline">
+            <Link href="/alertas" className="text-xs font-semibold text-primary hover:text-primary-700 transition-colors">
               Ver todas →
             </Link>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {priceAlerts.map((alert, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-red-50 border border-red-100">
-                <div className={`text-lg ${alert.change > 15 ? 'alert-badge' : ''}`}>🔴</div>
+              <div
+                key={i}
+                className="flex items-center gap-3 p-3 rounded-xl border"
+                style={{ background: '#FEF2F2', borderColor: '#FECACA' }}
+              >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{alert.name}</p>
-                  <p className="text-xs text-gray-500">{alert.supplier} · {alert.date}</p>
+                  <p className="text-sm font-semibold text-slate-900 truncate">{alert.name}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{alert.supplier} · {alert.date}</p>
                 </div>
-                <div className="text-sm font-bold text-red-600 flex-shrink-0">
+                <div className="text-sm font-bold text-red-600 flex-shrink-0 flex items-center gap-1">
+                  <TrendingUp className="w-3.5 h-3.5" />
                   +{alert.change}%
                 </div>
               </div>
@@ -195,38 +281,38 @@ export default function DashboardPage() {
         </div>
 
         {/* Weekly production */}
-        <div className="card p-5">
+        <div className="card p-5 flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+            <h2 className="font-bold text-slate-900 flex items-center gap-2 text-base">
               <ShoppingCart className="w-4 h-4 text-accent" />
               Producción Semanal
             </h2>
           </div>
-          <div className="text-center py-6">
-            <div className="text-4xl mb-3">📋</div>
-            <p className="text-gray-600 font-medium mb-2">Hoja del Jueves</p>
-            <p className="text-sm text-gray-500 mb-4">
-              Planifica la producción semanal e<br />
-              genera la lista de compra automáticamente
-            </p>
-            <div className="flex gap-2 justify-center">
-              <Link
-                href="/produccion"
-                className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm text-white"
-                style={{ background: '#34A853' }}
-              >
+          <div className="flex-1 flex flex-col items-center justify-center text-center py-4 gap-3">
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ background: '#F0FDF4' }}
+            >
+              <ClipboardList className="w-7 h-7 text-accent" />
+            </div>
+            <div>
+              <p className="text-slate-700 font-semibold">Hoja del Jueves</p>
+              <p className="text-sm text-slate-500 mt-1">
+                Planifica la producción semanal y genera<br />la lista de compra automáticamente
+              </p>
+            </div>
+            <div className="flex gap-2.5">
+              <Link href="/produccion" className="btn-primary text-sm py-2 px-4">
                 Crear hoja
               </Link>
-              <Link
-                href="/compras"
-                className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm border border-primary text-primary hover:bg-primary-light transition-colors"
-              >
+              <Link href="/compras" className="btn-secondary text-sm py-2 px-4">
                 Ver compras
               </Link>
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }
+

@@ -2,19 +2,32 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { createClient } from '@/lib/supabase/client'
+import {
+  ClipboardList, Wheat, BarChart2, ShoppingCart,
+  MessageSquare, Bot, Calendar, Bell,
+  ChefHat, Loader2, ArrowRight, CheckCircle2
+} from 'lucide-react'
 
 const features = [
-  { icon: '📋', text: '100 fichas técnicas reales de carta' },
-  { icon: '🌾', text: '14 alérgenos EU 1169/2011 por receta' },
-  { icon: '📊', text: 'Escandallo y coste por ración actualizable' },
-  { icon: '🛒', text: 'Lista de compra automática por proveedor' },
-  { icon: '📱', text: 'WhatsApp directo a cada proveedor' },
-  { icon: '🤖', text: 'Asistente IA de voz estilo chef profesional' },
-  { icon: '📅', text: 'Hoja de producción semanal (jueves)' },
-  { icon: '🔔', text: 'Alertas cuando suben precios de ingredientes' },
+  { icon: ClipboardList, text: '100 fichas técnicas reales de carta' },
+  { icon: Wheat, text: '14 alérgenos EU 1169/2011 por receta' },
+  { icon: BarChart2, text: 'Escandallo y coste por ración actualizable' },
+  { icon: ShoppingCart, text: 'Lista de compra automática por proveedor' },
+  { icon: MessageSquare, text: 'WhatsApp directo a cada proveedor' },
+  { icon: Bot, text: 'Asistente IA de voz estilo chef profesional' },
+  { icon: Calendar, text: 'Hoja de producción semanal (jueves)' },
+  { icon: Bell, text: 'Alertas cuando suben precios de ingredientes' },
 ]
+
+// Animation helpers
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.4, ease: 'easeOut' as const, delay },
+})
 
 export default function LoginPage() {
   const router = useRouter()
@@ -26,18 +39,9 @@ export default function LoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-
     try {
-      // Demo mode - bypass auth for demo@comiencasa.es
-      if (email === 'demo@comiencasa.es' && password === 'demo1234') {
-        toast.success('¡Bienvenido al modo demo!')
-        setTimeout(() => router.push('/dashboard'), 800)
-        return
-      }
-
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-
       toast.success('¡Bienvenido de vuelta!')
       router.push('/dashboard')
       router.refresh()
@@ -55,203 +59,213 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #ffffff 0%, #EBF2FF 50%, #e8f5e9 100%)' }}>
-      {/* Left - Branding */}
+    <div
+      className="min-h-screen flex"
+      style={{ background: 'linear-gradient(135deg, #ffffff 0%, #EBF2FF 55%, #e8f5e9 100%)' }}
+    >
+      {/* ── Left — Branding ──────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-center px-16 py-12">
-        <div
-          className="space-y-8"
-          style={{ animation: 'fade-in 0.6s ease-out' }}
-        >
+        <div className="space-y-8 max-w-lg">
           {/* Logo */}
-          <div className="flex items-center gap-4">
+          <motion.div {...fadeUp(0.1)} className="flex items-center gap-4">
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #4285F4, #34A853)' }}
+              className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+              style={{
+                background: 'linear-gradient(135deg, #4285F4, #34A853)',
+                boxShadow: '0 8px 24px rgba(66,133,244,0.35)',
+              }}
             >
-              👨‍🍳
+              <ChefHat className="w-7 h-7 text-white" />
             </div>
             <div>
               <h1
-                className="text-2xl font-bold text-gray-900"
+                className="text-xl font-bold text-slate-900 leading-tight"
                 style={{ fontFamily: 'Fraunces, Georgia, serif' }}
               >
                 Como en Casa
               </h1>
-              <p className="text-sm text-gray-500 font-medium">Restaurante · Catering</p>
+              <p className="text-sm text-slate-500 font-medium">Restaurante · Catering</p>
             </div>
-          </div>
+          </motion.div>
 
           {/* Hero text */}
-          <div>
+          <motion.div {...fadeUp(0.18)}>
             <h2
-              className="text-5xl font-bold leading-tight"
-              style={{ fontFamily: 'Fraunces, Georgia, serif', color: '#1A1A2E' }}
+              className="text-5xl font-bold leading-tight text-slate-900"
+              style={{ fontFamily: 'Fraunces, Georgia, serif' }}
             >
-              Cerebro de
-              <span
-                className="block"
-                style={{
-                  background: 'linear-gradient(135deg, #4285F4 0%, #34A853 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                }}
-              >
-                Cocina
-              </span>
+              Cerebro de{' '}
+              <span className="text-gradient-blue block">Cocina</span>
             </h2>
-            <p className="mt-4 text-xl text-gray-600 leading-relaxed">
+            <p className="mt-4 text-lg text-slate-600 leading-relaxed">
               El sistema inteligente para gestionar tu cocina profesional con precisión y eficiencia.
             </p>
-          </div>
+          </motion.div>
 
-          {/* Features */}
-          <div className="grid grid-cols-2 gap-3">
-            {features.map((f, i) => (
+          {/* Features grid */}
+          <motion.div {...fadeUp(0.26)} className="grid grid-cols-2 gap-2.5">
+            {features.map(({ icon: Icon, text }, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 p-3 rounded-xl bg-white/60 backdrop-blur-sm border border-white/80"
-                style={{ animation: `fade-in 0.6s ease-out ${i * 0.05}s both` }}
+                className="flex items-center gap-3 p-3 rounded-xl glass-card"
               >
-                <span className="text-xl">{f.icon}</span>
-                <span className="text-sm text-gray-700 font-medium">{f.text}</span>
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: '#EBF2FF' }}
+                >
+                  <Icon className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <span className="text-sm text-slate-700 font-medium leading-tight">{text}</span>
               </div>
             ))}
-          </div>
+          </motion.div>
 
-          {/* Price */}
-          <div className="flex items-center gap-4 p-4 rounded-2xl" style={{ background: 'linear-gradient(135deg, #4285F4, #2557C7)' }}>
-            <div className="text-white">
-              <div className="text-3xl font-bold" style={{ fontFamily: 'Fraunces, Georgia, serif' }}>€99<span className="text-lg font-normal">/mes</span></div>
-              <div className="text-blue-100 text-sm">por restaurante · sin permanencia</div>
+          {/* Pricing card */}
+          <motion.div
+            {...fadeUp(0.34)}
+            className="flex items-center gap-5 p-5 rounded-2xl text-white"
+            style={{ background: 'linear-gradient(135deg, #4285F4, #2557C7)', boxShadow: '0 8px 24px rgba(66,133,244,0.35)' }}
+          >
+            <div>
+              <div
+                className="text-3xl font-bold leading-none"
+                style={{ fontFamily: 'Fraunces, Georgia, serif' }}
+              >
+                €99
+                <span className="text-lg font-normal text-blue-200">/mes</span>
+              </div>
+              <div className="text-blue-200 text-sm mt-1">por restaurante · sin permanencia</div>
             </div>
-            <div className="ml-auto text-white/80 text-sm">
-              <div>✓ Acceso completo</div>
-              <div>✓ Soporte incluido</div>
-              <div>✓ Actualizaciones</div>
+            <div className="ml-auto text-sm text-blue-100 space-y-1">
+              {['Acceso completo', 'Soporte incluido', 'Actualizaciones'].map(t => (
+                <div key={t} className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 flex-shrink-0" />
+                  {t}
+                </div>
+              ))}
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
 
-      {/* Right - Login */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center px-8 py-12">
-        <div
+      {/* ── Right — Login form ────────────────────────────────── */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12">
+        <motion.div
           className="w-full max-w-md"
-          style={{ animation: 'slide-up 0.5s ease-out' }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
         >
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
             <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #4285F4, #34A853)' }}
+              className="w-12 h-12 rounded-2xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #4285F4, #34A853)', boxShadow: '0 6px 18px rgba(66,133,244,0.35)' }}
             >
-              👨‍🍳
+              <ChefHat className="w-6 h-6 text-white" />
             </div>
             <h1
-              className="text-2xl font-bold"
+              className="text-2xl font-bold text-slate-900"
               style={{ fontFamily: 'Fraunces, Georgia, serif' }}
             >
               Cerebro de Cocina
             </h1>
           </div>
 
-          {/* Login card */}
-          <div className="bg-white rounded-3xl shadow-2xl p-8 border border-gray-100">
+          {/* Card */}
+          <div className="bg-white rounded-3xl shadow-glass p-8 border border-slate-100">
             <h3
-              className="text-2xl font-bold text-gray-900 mb-2"
+              className="text-2xl font-bold text-slate-900 mb-1"
               style={{ fontFamily: 'Fraunces, Georgia, serif' }}
             >
               Iniciar sesión
             </h3>
-            <p className="text-gray-500 text-sm mb-8">Accede a tu cocina inteligente</p>
+            <p className="text-slate-500 text-sm mb-8">Accede a tu cocina inteligente</p>
 
             <form onSubmit={handleLogin} className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label htmlFor="email" className="block text-sm font-semibold text-slate-700 mb-2">
                   Email
                 </label>
                 <input
+                  id="email"
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
                   placeholder="chef@restaurante.es"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all text-gray-900 bg-gray-50 focus:bg-white"
+                  className="input-field"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label htmlFor="password" className="block text-sm font-semibold text-slate-700 mb-2">
                   Contraseña
                 </label>
                 <input
+                  id="password"
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all text-gray-900 bg-gray-50 focus:bg-white"
+                  className="input-field"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-6 rounded-xl font-semibold text-white transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ background: loading ? '#9CA3AF' : 'linear-gradient(135deg, #4285F4, #2557C7)', boxShadow: loading ? 'none' : '0 4px 15px rgba(66,133,244,0.4)' }}
+                className="btn-primary w-full py-3 text-base"
               >
                 {loading ? (
                   <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                    </svg>
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Entrando...
                   </>
-                ) : 'Entrar al sistema'}
+                ) : (
+                  <>
+                    Entrar al sistema
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </form>
 
             {/* Demo hint */}
-            <div
-              className="mt-6 p-4 rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
-              style={{ background: '#EBF2FF' }}
+            <button
+              type="button"
               onClick={useDemoCredentials}
+              className="mt-5 w-full p-4 rounded-xl text-left cursor-pointer transition-all duration-150 hover:opacity-90 active:scale-[0.99]"
+              style={{ background: '#EBF2FF' }}
             >
-              <p className="text-xs font-semibold text-blue-700 mb-1">🎮 Acceso demo (click para rellenar)</p>
-              <p className="text-xs text-blue-600">demo@comiencasa.es · demo1234</p>
-            </div>
+              <p className="text-xs font-semibold text-primary-700 mb-1 flex items-center gap-1.5">
+                <Bot className="w-3.5 h-3.5" />
+                Acceso demo — click para rellenar
+              </p>
+              <p className="text-xs text-primary-600">demo@comiencasa.es · demo1234</p>
+            </button>
 
             {/* Register link */}
             <div className="mt-6 text-center">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-slate-500">
                 ¿Nuevo cliente?{' '}
-                <a href="mailto:info@comiencasa.es?subject=Solicitar acceso Cerebro de Cocina"
-                   className="text-blue-600 font-semibold hover:underline">
-                  Solicitar acceso →
+                <a
+                  href="mailto:info@comiencasa.es?subject=Solicitar acceso Cerebro de Cocina"
+                  className="text-primary font-semibold hover:text-primary-700 transition-colors"
+                >
+                  Solicitar acceso
+                  <ArrowRight className="inline w-3.5 h-3.5 ml-0.5" />
                 </a>
               </p>
             </div>
           </div>
 
-          {/* Footer */}
-          <p className="text-center text-xs text-gray-400 mt-6">
+          <p className="text-center text-xs text-slate-400 mt-6">
             © 2024 Como en Casa · Cerebro de Cocina · v1.0
           </p>
-        </div>
+        </motion.div>
       </div>
-
-      <style jsx global>{`
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes slide-up {
-          from { opacity: 0; transform: translateY(24px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   )
 }

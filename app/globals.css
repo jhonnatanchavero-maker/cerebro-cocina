@@ -6,56 +6,233 @@
 :root {
   --font-inter: 'Inter', system-ui, sans-serif;
   --font-fraunces: 'Fraunces', Georgia, serif;
+  --sidebar-width: 240px;
+  --sidebar-collapsed: 64px;
+  --header-height: 64px;
+  --radius-card: 16px;
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  --shadow-card-hover: 0 8px 24px 0 rgb(66 133 244 / 0.14);
+  --shadow-blue: 0 4px 16px rgba(66, 133, 244, 0.35);
 }
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
 
 body {
-  background-color: #F8FAFF;
-  color: #1A1A2E;
+  background-color: #F4F7FE;
+  color: #1A1F36;
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-size: 16px;
+  line-height: 1.6;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
 
-/* Voice animation bars */
+/* ── Card component ─────────────────────────────────────── */
+.card {
+  @apply bg-white rounded-2xl border border-slate-100 shadow-card;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white cursor-pointer transition-all duration-200;
+  background: linear-gradient(135deg, #4285F4, #2557C7);
+  box-shadow: var(--shadow-blue);
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(66, 133, 244, 0.45);
+}
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-blue);
+}
+.btn-primary:disabled {
+  background: #9CA3AF;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm cursor-pointer transition-all duration-200;
+  @apply border border-primary-200 text-primary bg-primary-50;
+}
+.btn-secondary:hover {
+  @apply bg-primary-100;
+}
+
+/* ── Form inputs ────────────────────────────────────────── */
+.input-field {
+  @apply w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 bg-slate-50;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-400 focus:bg-white;
+  @apply transition-all duration-150 text-base;
+}
+
+/* ── Badges ─────────────────────────────────────────────── */
+.badge-primary {
+  @apply text-xs font-bold px-2 py-0.5 rounded-full bg-primary-100 text-primary-700;
+}
+.badge-success {
+  @apply text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700;
+}
+.badge-warning {
+  @apply text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700;
+}
+.badge-danger {
+  @apply text-xs font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600;
+}
+
+/* ── Allergen badges ────────────────────────────────────── */
+.allergen-present {
+  @apply bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold px-2 py-1 rounded-lg;
+}
+.allergen-absent {
+  @apply bg-slate-50 border border-slate-200 text-slate-400 text-xs font-medium px-2 py-1 rounded-lg;
+}
+
+/* ── Nav active indicator ───────────────────────────────── */
+.nav-active-dot {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  border-radius: 0 4px 4px 0;
+  background: #4285F4;
+}
+
+/* ── Voice animation bars ───────────────────────────────── */
 .voice-bar {
-  @apply bg-primary rounded-full w-1;
+  @apply bg-primary rounded-full;
+  width: 3px;
   animation: voice-wave 0.7s ease-in-out infinite;
 }
 .voice-bar:nth-child(2) { animation-delay: 0.1s; }
 .voice-bar:nth-child(3) { animation-delay: 0.2s; }
 .voice-bar:nth-child(4) { animation-delay: 0.1s; }
 
-/* Alert animation */
+/* ── Alert animation ────────────────────────────────────── */
 .alert-badge {
   animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
 }
 
-/* Card component */
-.card {
-  @apply bg-white rounded-2xl border border-gray-100 shadow-card;
+/* ── Page transitions ───────────────────────────────────── */
+.page-enter {
+  animation: page-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Allergen badge */
-.allergen-present {
-  @apply bg-amber-50 border border-amber-200 text-amber-800;
-}
-.allergen-absent {
-  @apply bg-gray-50 border border-gray-200 text-gray-400;
+/* ── Skeleton loader ────────────────────────────────────── */
+.skeleton {
+  @apply bg-slate-100 rounded-xl;
+  animation: shimmer 1.8s ease-in-out infinite;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
 }
 
-/* Print */
+/* ── Status dot ─────────────────────────────────────────── */
+.status-online {
+  @apply inline-block w-2 h-2 rounded-full bg-emerald-500;
+  animation: pulse-soft 2s ease infinite;
+}
+
+/* ── Gradient text ──────────────────────────────────────── */
+.text-gradient-blue {
+  background: linear-gradient(135deg, #4285F4 0%, #34A853 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Glass card ─────────────────────────────────────────── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+}
+
+/* ── Print ──────────────────────────────────────────────── */
 @media print {
   .no-print { display: none !important; }
   body { background: white !important; color: black !important; }
   .card { border: 1px solid #ccc !important; box-shadow: none !important; }
+}
+
+/* ── Reduced motion ─────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   KEYFRAMES
+════════════════════════════════════════════════════════ */
+
+@keyframes voice-wave {
+  0%, 100% { height: 6px; }
+  50% { height: 22px; }
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(66, 133, 244, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes float-up {
+  0% { opacity: 0; transform: translateY(8px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }

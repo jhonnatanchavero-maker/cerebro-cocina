@@ -1,0 +1,22 @@
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Permissions-Policy",
+          "value": "microphone=*, camera=(), geolocation=()"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin-allow-popups"
+        }
+      ]
+    }
+  ],
+  "functions": {
+    "app/api/**": {
+      "maxDuration": 30
+    }
+  }
+}

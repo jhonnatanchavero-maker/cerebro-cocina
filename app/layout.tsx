@@ -1,31 +1,36 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
+import InstallBanner from '@/components/InstallBanner'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
-  title: 'Como en Casa · Cerebro de Cocina',
-  description: 'El sistema inteligente para gestionar tu cocina profesional. 100 fichas técnicas, alérgenos, escandallo, producción semanal y asistente IA de voz.',
-  keywords: 'cocina profesional, fichas técnicas, alérgenos, escandallo, restaurante, como en casa',
+  title: 'Cerebro de Cocina · Asistente IA para Restaurantes',
+  description: 'Asistente de voz inteligente para cocinas profesionales. Fichas técnicas, escandallo, producción semanal y IA por voz.',
+  keywords: 'cocina profesional, fichas técnicas, alérgenos, escandallo, restaurante, asistente voz cocina, IA cocina',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'default',
-    title: 'Chef IA',
+    statusBarStyle: 'black-translucent',
+    title: 'Cerebro Cocina',
   },
   icons: {
-    icon: '/icon.svg',
-    apple: '/icon.svg',
+    icon: [
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
   },
   other: {
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-capable': 'yes',
-    'apple-mobile-web-app-status-bar-style': 'default',
-    'apple-mobile-web-app-title': 'Chef IA',
-    'application-name': 'Chef IA',
+    'apple-mobile-web-app-status-bar-style': 'black-translucent',
+    'apple-mobile-web-app-title': 'Cerebro Cocina',
+    'application-name': 'Cerebro Cocina',
     'msapplication-TileColor': '#4285F4',
+    'msapplication-TileImage': '/icon-192.png',
   }
 }
 
@@ -46,10 +51,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/icon.svg" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Chef IA" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Cerebro Cocina" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body>
@@ -62,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             error: { iconTheme: { primary: '#EA4335', secondary: '#fff' } },
           }}
         />
+        <InstallBanner />
         {/* Register service worker */}
         <script dangerouslySetInnerHTML={{
           __html: `

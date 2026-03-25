@@ -20,7 +20,7 @@ interface AppAction {
   }
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Speech helpers ────────────────────────────────────────────────────────
 
 function getSR() {
   if (typeof window === 'undefined') return null
@@ -33,22 +33,50 @@ function normalize(t: string) {
   return t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
 }
 
-const WAKE_WORDS = ['oido cocina', 'oye cocina', 'hey cocina', 'hola cocina', 'oido chef', 'oye chef', 'hey chef']
+const WAKE_WORDS = [
+  'oido cocina', 'oye cocina', 'hey cocina', 'hola cocina',
+  'oido chef', 'oye chef', 'hey chef',
+  'cerebro cocina', 'oido cerebro', 'oye cerebro',
+]
 const isWake = (t: string) => WAKE_WORDS.some(w => normalize(t).includes(w))
+
+// Cache best Spanish TTS voice — avoids repeated voice-list scans
+let cachedVoice: SpeechSynthesisVoice | null | undefined = undefined
+
+function getSpanishVoice(): SpeechSynthesisVoice | null {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return null
+  if (cachedVoice !== undefined) return cachedVoice
+  const voices = window.speechSynthesis.getVoices()
+  if (!voices.length) return null
+  // Prefer Google/Microsoft/Apple neural voices for natural Spanish
+  const brands = ['Google', 'Microsoft', 'Apple']
+  const langs = ['es-ES', 'es-MX', 'es-US', 'es']
+  for (const brand of brands) {
+    const v = voices.find(v =>
+      langs.some(l => v.lang === l || v.lang.startsWith(l)) && v.name.includes(brand)
+    )
+    if (v) { cachedVoice = v; return v }
+  }
+  const v = voices.find(v => langs.some(l => v.lang === l || v.lang.startsWith(l)))
+  cachedVoice = v ?? null
+  return cachedVoice
+}
 
 function speakText(text: string, onEnd?: () => void) {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) { onEnd?.(); return }
   window.speechSynthesis.cancel()
   const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text]
+  const voice = getSpanishVoice()
   let i = 0
-  function speakNext() {
+  function next() {
     if (i >= sentences.length) { onEnd?.(); return }
     const u = new SpeechSynthesisUtterance(sentences[i++].trim())
     u.lang = 'es-ES'; u.rate = 1.05; u.pitch = 1
-    u.onend = speakNext; u.onerror = speakNext
+    if (voice) u.voice = voice
+    u.onend = next; u.onerror = next
     window.speechSynthesis.speak(u)
   }
-  speakNext()
+  next()
 }
 
 function calcCost(recipeName: string, portions: number): string {
@@ -79,7 +107,7 @@ function calcCost(recipeName: string, portions: number): string {
   return `${recipe.title} para ${p} raciones: coste total ${total.toFixed(2)}€, ${per.toFixed(2)}€ por ración, precio sugerido ${(per * 3.5).toFixed(2)}€`
 }
 
-// ── Constants ──────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────
 const N_BARS = 36
 
 const STATE_COLORS: Record<State, string> = {
@@ -98,14 +126,23 @@ const STATE_RING_COLORS: Record<State, string> = {
 
 const SUGGESTIONS = [
   'Ve a recetas',
-  'Busca la merluza',
+  '¿Qué platos tienen merluza?',
   '¿Cuánto cuesta el cocido para 20?',
-  '¿Cómo se hace la lasaña?',
+  'Escala la lasaña a 50 raciones',
   '¿Qué recetas no tienen gluten?',
-  'Añade ajo a la carbonara',
+  'El pollo subió 15%, ¿afecta al margen?',
 ]
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// Audio constraints: noise suppression for kitchen environments (fryers, fans, background noise)
+const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  noiseSuppression: true,
+  echoCancellation: true,
+  autoGainControl: true,
+  channelCount: 1,
+  sampleRate: 16000,
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
 
 export default function VoiceAssistant() {
   const router = useRouter()
@@ -127,18 +164,31 @@ export default function VoiceAssistant() {
   const abortRef = useRef<AbortController | null>(null)
   const animFrameRef = useRef<number>(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  // Audio pipeline refs for real waveform + VAD
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const micStreamRef = useRef<MediaStream | null>(null)
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const vadActiveRef = useRef(false)
 
   useEffect(() => { stateRef.current = state }, [state])
   useEffect(() => {
     setSpeechSupported(!!getSR())
-    // Pre-check microphone permission state (non-blocking)
     if (typeof navigator !== 'undefined' && navigator.permissions) {
       navigator.permissions.query({ name: 'microphone' as PermissionName }).then(result => {
         setMicPermission(result.state === 'granted' ? 'granted' : result.state === 'denied' ? 'denied' : 'unknown')
         result.onchange = () => {
           setMicPermission(result.state === 'granted' ? 'granted' : result.state === 'denied' ? 'denied' : 'unknown')
         }
-      }).catch(() => { /* permissions API not available */ })
+      }).catch(() => { /**/ })
+    }
+    // Pre-load voices list (browsers load voices asynchronously)
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        cachedVoice = undefined // reset so next call re-selects best voice
+        getSpanishVoice()
+      }
+      getSpanishVoice()
     }
   }, [])
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, streamText])
@@ -148,26 +198,104 @@ export default function VoiceAssistant() {
     setTimeout(() => setNotification(''), 3000)
   }
 
-  // ── Animated bars ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (state === 'listening' || state === 'speaking' || state === 'thinking') {
-      let t = 0
-      const speed = state === 'listening' ? 0.22 : state === 'thinking' ? 0.08 : 0.14
-      const amp   = state === 'listening' ? 26   : state === 'thinking' ? 10  : 18
-      const base  = state === 'listening' ? 8    : state === 'thinking' ? 20  : 16
-      function animate() {
-        t += speed
-        setBars(Array.from({ length: N_BARS }, (_, i) =>
-          Math.max(3, Math.sin(t + i * 0.32) * amp + base + Math.random() * 5)
-        ))
-        animFrameRef.current = requestAnimationFrame(animate)
+  // ── Audio context management ───────────────────────────────────────────────
+
+  function stopAudioCtx() {
+    vadActiveRef.current = false
+    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null }
+    cancelAnimationFrame(animFrameRef.current)
+    if (micStreamRef.current) { micStreamRef.current.getTracks().forEach(t => t.stop()); micStreamRef.current = null }
+    if (audioCtxRef.current) { audioCtxRef.current.close().catch(() => {}); audioCtxRef.current = null }
+    analyserRef.current = null
+  }
+
+  // Real audio-driven waveform from AnalyserNode
+  function startAudioViz() {
+    if (!analyserRef.current) return
+    const analyser = analyserRef.current
+    const data = new Uint8Array(analyser.frequencyBinCount)
+    function draw() {
+      if (!analyserRef.current) return
+      analyser.getByteFrequencyData(data)
+      setBars(Array.from({ length: N_BARS }, (_, i) => {
+        const idx = Math.floor(i * data.length / N_BARS)
+        return Math.max(3, (data[idx] / 255) * 52)
+      }))
+      animFrameRef.current = requestAnimationFrame(draw)
+    }
+    draw()
+  }
+
+  // VAD: silence detection — stops recording after 2.5s of silence
+  // Complements the browser's built-in speech end detection
+  function startVAD() {
+    if (!analyserRef.current) return
+    vadActiveRef.current = true
+    const analyser = analyserRef.current
+    const data = new Uint8Array(analyser.frequencyBinCount)
+    let lastSoundTime = Date.now()
+    const SILENCE_MS = 2500
+    const NOISE_FLOOR = 12 // avg amplitude threshold distinguishing speech from silence
+
+    function check() {
+      if (!vadActiveRef.current || stateRef.current !== 'listening') return
+      analyser.getByteFrequencyData(data)
+      const avg = data.reduce((a, b) => a + b, 0) / data.length
+      if (avg > NOISE_FLOOR) lastSoundTime = Date.now()
+      if (Date.now() - lastSoundTime > SILENCE_MS) {
+        recogRef.current?.stop()
+        return
       }
-      animate()
-      return () => cancelAnimationFrame(animFrameRef.current)
+      silenceTimerRef.current = setTimeout(check, 100)
+    }
+    // Give 1s for user to start speaking before VAD kicks in
+    silenceTimerRef.current = setTimeout(check, 1000)
+  }
+
+  // Simulated animation for thinking/speaking (no audio input available)
+  function startFakeAnim(st: 'thinking' | 'speaking') {
+    cancelAnimationFrame(animFrameRef.current)
+    const speed = st === 'thinking' ? 0.08 : 0.14
+    const amp   = st === 'thinking' ? 10  : 18
+    const base  = st === 'thinking' ? 20  : 16
+    let t = 0
+    function animate() {
+      t += speed
+      setBars(Array.from({ length: N_BARS }, (_, i) =>
+        Math.max(3, Math.sin(t + i * 0.32) * amp + base + Math.random() * 5)
+      ))
+      animFrameRef.current = requestAnimationFrame(animate)
+    }
+    animate()
+  }
+
+  // ── Animation state machine ────────────────────────────────────────────────
+  useEffect(() => {
+    cancelAnimationFrame(animFrameRef.current)
+    if (state === 'listening') {
+      // Real audio viz if AudioContext is ready; fallback to fake
+      if (analyserRef.current) {
+        startAudioViz()
+      } else {
+        let t = 0
+        function animate() {
+          t += 0.22
+          setBars(Array.from({ length: N_BARS }, (_, i) =>
+            Math.max(3, Math.sin(t + i * 0.32) * 26 + 8 + Math.random() * 5)
+          ))
+          animFrameRef.current = requestAnimationFrame(animate)
+        }
+        animate()
+      }
+    } else if (state === 'thinking') {
+      startFakeAnim('thinking')
+    } else if (state === 'speaking') {
+      startFakeAnim('speaking')
     } else {
-      cancelAnimationFrame(animFrameRef.current)
       setBars(Array(N_BARS).fill(3))
     }
+    return () => cancelAnimationFrame(animFrameRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state])
 
   // ── Execute app action ─────────────────────────────────────────────────────
@@ -210,14 +338,11 @@ export default function VoiceAssistant() {
   // ── Send message with streaming ────────────────────────────────────────────
   const sendMessage = useCallback(async (text: string, fromVoice = false) => {
     if (!text.trim()) return
-    // For voice calls, allow 'listening' state; for typed calls only from 'idle'
     if (!fromVoice && stateRef.current !== 'idle') return
     if (fromVoice && stateRef.current !== 'idle' && stateRef.current !== 'listening') return
 
-    // Immediately update ref so further guard checks pass
     setState('thinking')
     stateRef.current = 'thinking'
-
     setMessages(prev => [...prev, { role: 'user', content: text }])
     setInputText('')
     setStreamText('')
@@ -293,6 +418,7 @@ export default function VoiceAssistant() {
     abortRef.current?.abort()
     window.speechSynthesis?.cancel()
     recogRef.current?.stop()
+    stopAudioCtx()
     setStreamText('')
     setState('idle')
     stateRef.current = 'idle'
@@ -333,13 +459,15 @@ export default function VoiceAssistant() {
       if (wakeTimerRef.current) clearTimeout(wakeTimerRef.current)
       recogRef.current?.stop()
       abortRef.current?.abort()
+      stopAudioCtx()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── Command listener ───────────────────────────────────────────────────────
-  function startCommandListening() {
-    const SR = getSR(); if (!SR) { notify('Micrófono no disponible en este navegador'); return }
+  // ── Command listener: mic + noise cancellation + AudioContext ──────────────
+  async function startCommandListening() {
+    const SR = getSR()
+    if (!SR) { notify('Micrófono no disponible en este navegador'); return }
     if (micPermission === 'denied') {
       notify('Permiso de micrófono denegado. Actívalo en los ajustes del navegador.')
       return
@@ -348,13 +476,38 @@ export default function VoiceAssistant() {
     recogRef.current?.abort()
     recogRef.current = null
     setWakeActive(false)
+    stopAudioCtx()
 
-    // On HTTPS: explicitly request mic permission via getUserMedia before SpeechRecognition
-    // This ensures the permission prompt appears even on first-time HTTPS visits
-    const requestAndListen = () => {
-      setTimeout(() => {
+    // Get mic stream with kitchen noise cancellation constraints
+    // This also handles permission prompt on first use (HTTPS)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS })
+      micStreamRef.current = stream
+      setMicPermission('granted')
+
+      // Build AudioContext for real waveform visualization + VAD
+      const ctx = new AudioContext()
+      audioCtxRef.current = ctx
+      const source = ctx.createMediaStreamSource(stream)
+      const analyser = ctx.createAnalyser()
+      analyser.fftSize = 256       // 128 frequency bins — good resolution for voice
+      analyser.smoothingTimeConstant = 0.8
+      source.connect(analyser)
+      analyserRef.current = analyser
+    } catch (err) {
+      const e = err as DOMException
+      if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+        setMicPermission('denied')
+        notify('Permiso de micrófono denegado. Actívalo en los ajustes del navegador.')
+        return
+      }
+      // AudioContext unavailable — continue with fake animation
+    }
+
+    setTimeout(() => {
       setState('listening')
       stateRef.current = 'listening'
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rec = new SR() as any
       rec.lang = 'es-ES'; rec.continuous = false; rec.interimResults = true; rec.maxAlternatives = 3
@@ -364,7 +517,7 @@ export default function VoiceAssistant() {
         const SGL = (window as any).SpeechGrammarList || (window as any).webkitSpeechGrammarList
         if (SGL) {
           const names = recipes.map(r => r.title.toLowerCase()).join(' | ')
-          const g = `#JSGF V1.0; grammar c; public <c> = oido cocina | ve a | busca | añade | cambia | cuánto cuesta | escala | ${names} | pollo | merluza | bacalao | lasaña | tortilla | cocido;`
+          const g = `#JSGF V1.0; grammar c; public <c> = oye cocina | cerebro cocina | ve a | busca | añade | cambia | cuánto cuesta | escala | ${names} | pollo | merluza | bacalao | lasaña | tortilla | cocido;`
           const gl = new SGL(); gl.addFromString(g, 1); rec.grammars = gl
         }
       } catch { /**/ }
@@ -378,11 +531,12 @@ export default function VoiceAssistant() {
         if (!raw) return
         rec.stop()
         recogRef.current = null
+        stopAudioCtx()
         const corrected = correctKitchenSpeech(raw)
-        // Pass fromVoice=true so sendMessage allows call from 'listening' state
         sendMessage(corrected, true)
       }
       rec.onerror = (e: { error: string }) => {
+        stopAudioCtx()
         setState('idle'); stateRef.current = 'idle'
         if (e.error === 'not-allowed') notify('Permiso de micrófono denegado. Actívalo en Ajustes del navegador.')
         else if (e.error === 'no-speech') { notify('No se detectó voz. Inténtalo de nuevo.'); scheduleWakeRestart() }
@@ -390,38 +544,25 @@ export default function VoiceAssistant() {
       }
       rec.onend = () => {
         if (stateRef.current === 'listening') {
+          stopAudioCtx()
           setState('idle'); stateRef.current = 'idle'; scheduleWakeRestart()
         }
       }
-      try { rec.start(); recogRef.current = rec } catch { setState('idle'); stateRef.current = 'idle'; scheduleWakeRestart() }
-      }, 300)
-    }
-
-    // On HTTPS request mic permission explicitly first to trigger the browser prompt
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia && micPermission !== 'granted') {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          // Permission granted — stop the stream immediately (SpeechRecognition manages its own)
-          stream.getTracks().forEach(t => t.stop())
-          setMicPermission('granted')
-          requestAndListen()
-        })
-        .catch(err => {
-          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            setMicPermission('denied')
-            notify('Permiso de micrófono denegado. Actívalo en los ajustes del navegador.')
-          } else {
-            // getUserMedia not required (e.g. already granted), proceed anyway
-            requestAndListen()
-          }
-        })
-    } else {
-      requestAndListen()
-    }
+      try {
+        rec.start()
+        recogRef.current = rec
+        if (analyserRef.current) startVAD()
+      } catch {
+        stopAudioCtx(); setState('idle'); stateRef.current = 'idle'; scheduleWakeRestart()
+      }
+    }, 200)
   }
 
   function handleMicClick() {
-    if (state === 'listening') { recogRef.current?.stop(); setState('idle'); stateRef.current = 'idle'; scheduleWakeRestart(); return }
+    if (state === 'listening') {
+      recogRef.current?.stop(); stopAudioCtx()
+      setState('idle'); stateRef.current = 'idle'; scheduleWakeRestart(); return
+    }
     if (state === 'speaking' || state === 'thinking') { stopAll(); return }
     startCommandListening()
   }
@@ -431,14 +572,14 @@ export default function VoiceAssistant() {
   const barColor = STATE_COLORS[state]
 
   const statusLabel: Record<State, string> = {
-    idle: wakeActive ? 'Di "oído cocina" o toca el micrófono' : 'Toca el micrófono para hablar',
+    idle: wakeActive ? 'Di "Oye Cocina" o toca el micrófono' : 'Toca el micrófono para hablar',
     listening: 'Escuchando... habla ahora',
     thinking: 'Procesando tu consulta...',
     speaking: 'Respondiendo...',
   }
 
   const micLabel: Record<State, string> = {
-    idle: wakeActive ? '● Di "oído cocina"' : 'Toca para hablar',
+    idle: wakeActive ? '● Di "Oye Cocina"' : 'Toca para hablar',
     listening: 'Toca para cancelar',
     thinking: 'Toca para detener',
     speaking: 'Toca para detener',
@@ -489,7 +630,6 @@ export default function VoiceAssistant() {
             style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
           >
             <div className="flex items-center gap-3">
-              {/* Avatar with glow */}
               <div
                 className="relative w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{
@@ -528,7 +668,6 @@ export default function VoiceAssistant() {
             {/* Empty state */}
             {messages.length === 0 && !streamText && (
               <div className="flex flex-col items-center justify-center h-full text-center gap-5 py-8">
-                {/* Large glowing chef icon */}
                 <div
                   className="w-24 h-24 rounded-full flex items-center justify-center"
                   style={{
@@ -545,7 +684,6 @@ export default function VoiceAssistant() {
                     Tu asistente inteligente de cocina.<br />Pregúntame lo que necesites.
                   </p>
                 </div>
-                {/* Suggestion chips */}
                 <div className="flex flex-wrap gap-2 justify-center max-w-sm mt-1">
                   {SUGGESTIONS.map(s => (
                     <button
@@ -667,7 +805,7 @@ export default function VoiceAssistant() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Waveform visualizer */}
+          {/* Waveform visualizer — real audio when listening, simulated otherwise */}
           <div
             className="flex items-center justify-center px-6 flex-shrink-0"
             style={{ height: 60, borderTop: '1px solid rgba(255,255,255,0.04)' }}
@@ -683,7 +821,7 @@ export default function VoiceAssistant() {
                     background: state !== 'idle'
                       ? `linear-gradient(to top, ${barColor}99, ${barColor})`
                       : 'rgba(255,255,255,0.08)',
-                    transition: 'height 0.06s ease, background 0.3s ease',
+                    transition: state === 'listening' ? 'height 0.04s ease' : 'height 0.06s ease, background 0.3s ease',
                     opacity: state !== 'idle' ? 1 : 0.5,
                   }}
                 />
@@ -728,31 +866,18 @@ export default function VoiceAssistant() {
                 <>
                   <span
                     className="absolute rounded-full animate-ping"
-                    style={{
-                      width: 120, height: 120,
-                      background: 'rgba(239,68,68,0.08)',
-                      animationDuration: '1.2s',
-                    }}
+                    style={{ width: 120, height: 120, background: 'rgba(239,68,68,0.08)', animationDuration: '1.2s' }}
                   />
                   <span
                     className="absolute rounded-full animate-ping"
-                    style={{
-                      width: 96, height: 96,
-                      background: 'rgba(239,68,68,0.12)',
-                      animationDuration: '1.2s',
-                      animationDelay: '0.3s',
-                    }}
+                    style={{ width: 96, height: 96, background: 'rgba(239,68,68,0.12)', animationDuration: '1.2s', animationDelay: '0.3s' }}
                   />
                 </>
               )}
               {state === 'speaking' && (
                 <span
                   className="absolute rounded-full animate-ping"
-                  style={{
-                    width: 104, height: 104,
-                    background: 'rgba(79,142,247,0.1)',
-                    animationDuration: '1.4s',
-                  }}
+                  style={{ width: 104, height: 104, background: 'rgba(79,142,247,0.1)', animationDuration: '1.4s' }}
                 />
               )}
 
@@ -765,7 +890,7 @@ export default function VoiceAssistant() {
                     ? `conic-gradient(${barColor} 0deg, ${barColor}88 90deg, transparent 180deg, ${barColor}44 270deg, ${barColor} 360deg)`
                     : 'transparent',
                   opacity: state !== 'idle' ? 0.7 : 0,
-                  filter: `blur(6px)`,
+                  filter: 'blur(6px)',
                   transition: 'opacity 0.4s ease, background 0.4s ease',
                   animation: state !== 'idle' ? 'spin 3s linear infinite' : 'none',
                 }}
@@ -813,6 +938,10 @@ export default function VoiceAssistant() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @keyframes voice-wave {
+          0%, 100% { transform: scaleY(0.5); opacity: 0.5; }
+          50% { transform: scaleY(1.4); opacity: 1; }
         }
         input::placeholder { color: rgba(255,255,255,0.3); }
         @media (prefers-reduced-motion: reduce) {
